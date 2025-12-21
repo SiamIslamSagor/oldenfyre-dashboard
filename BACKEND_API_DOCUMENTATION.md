@@ -12,8 +12,9 @@ This document provides comprehensive information about all available API endpoin
 6. [Data Models](#data-models)
 7. [Product Endpoints](#product-endpoints)
 8. [Order Endpoints](#order-endpoints)
-9. [Inventory Management](#inventory-management)
-10. [Deployment Information](#deployment-information)
+9. [Dashboard Endpoints](#dashboard-endpoints)
+10. [Inventory Management](#inventory-management)
+11. [Deployment Information](#deployment-information)
 
 ## Overview
 
@@ -185,6 +186,7 @@ Creates a new product in inventory. The product code is automatically generated 
   - All numeric fields must be non-negative
   - Discount must be between 0 and 100
   - Product codes follow format: 4 digits + 1 letter (e.g., "1234A")
+  - **Automatic Status Management**: When `pricing.discount` is greater than 0, product status is automatically set to "discontinued"
 
 - **Success Response (201):**
 
@@ -902,6 +904,277 @@ Updates only the status of an existing order with inventory management.
 }
 ```
 
+## Dashboard Endpoints
+
+The dashboard endpoints provide comprehensive analytics and insights for the OldenFyre Inventory system.
+
+### 1. Get Dashboard Statistics
+
+Provides comprehensive dashboard statistics including product analytics, order metrics, revenue analysis, top products, and customer insights.
+
+- **Endpoint:** `GET /dashboard/stats`
+- **Method:** GET
+- **Description:** Retrieves comprehensive dashboard statistics with detailed analytics
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Dashboard statistics retrieved successfully",
+  "data": {
+    "products": {
+      "total": 8,
+      "active": 5,
+      "inactive": 1,
+      "discontinued": 5,
+      "soldOut": 0,
+      "lowStock": 3,
+      "outOfStock": 1,
+      "totalInventoryValue": 43610,
+      "totalCostValue": 30660,
+      "totalPotentialRevenue": 43610,
+      "averageProductPrice": 174.375,
+      "averageProductCost": 117.5,
+      "byCategory": [
+        {
+          "_id": "Electronics",
+          "count": 6,
+          "totalQuantity": 218,
+          "totalValue": 37970
+        },
+        {
+          "_id": "Test Category",
+          "count": 2,
+          "totalQuantity": 80,
+          "totalValue": 12900
+        },
+        {
+          "_id": "Vintage",
+          "count": 3,
+          "totalQuantity": 6,
+          "totalValue": 720
+        }
+      ]
+    },
+    "orders": {
+      "total": 2,
+      "thisMonth": 2,
+      "lastMonth": 0,
+      "thisYear": 2,
+      "last7Days": 2,
+      "last30Days": 2,
+      "last90Days": 2,
+      "byStatus": {
+        "confirmed": 1,
+        "pending": 1
+        // others status here
+      },
+      "monthlyGrowth": 0
+    },
+    "revenue": {
+      "total": 1750,
+      "totalSubtotal": 1800,
+      "totalDiscount": 50,
+      "averageOrderValue": 875,
+      "currentMonth": {
+        "revenue": 1750,
+        "subtotal": 1800,
+        "discount": 50,
+        "orderCount": 2,
+        "averageOrderValue": 875
+      },
+      "lastMonth": {
+        "revenue": 0,
+        "subtotal": 0,
+        "discount": 0,
+        "orderCount": 0,
+        "averageOrderValue": 0
+      },
+      "yearToDate": {
+        "revenue": 1750,
+        "orderCount": 2,
+        "averageOrderValue": 875
+      },
+      "monthlyGrowth": 0,
+      "revenueByMonth": [
+        {
+          "_id": 12,
+          "revenue": 1750,
+          "orderCount": 2,
+          "averageOrderValue": 875
+        }
+      ]
+    },
+    "topSellingProducts": [
+      {
+        "_id": "9591B",
+        "totalQuantity": 12,
+        "totalRevenue": 1800,
+        "orderCount": 2,
+        "productDetails": {
+          "name": "Updated Product Name",
+          "category": "Electronics"
+        }
+      }
+    ],
+    "customers": {
+      "total": 2,
+      "topCustomers": [
+        {
+          "_id": "+1234567890",
+          "name": "John Doe",
+          "orderCount": 1,
+          "totalSpent": 900,
+          "averageOrderValue": 900,
+          "firstOrderDate": "2025-12-20T21:24:27.329Z",
+          "lastOrderDate": "2025-12-20T21:24:27.329Z"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Data Fields Explained:**
+
+- **products**: Comprehensive product analytics
+
+  - `total`: Total number of products (excluding deleted)
+  - `active/inactive/discontinued/soldOut`: Count by status
+  - `lowStock/outOfStock`: Inventory alerts (low stock < 5, out of stock = 0)
+  - `totalInventoryValue`: Sum of (quantity × sell price) for all products
+  - `totalCostValue`: Sum of (quantity × buy price) for all products
+  - `byCategory`: Products grouped by category with counts and values
+
+- **orders**: Order statistics and trends
+
+  - `total/thisMonth/lastMonth/thisYear`: Order counts for different time periods
+  - `last7Days/last30Days/last90Days`: Recent order counts
+  - `byStatus`: Orders grouped by status (pending, confirmed, shipped, delivered, cancelled)
+  - `monthlyGrowth`: Percentage growth from last month to current month
+
+- **revenue**: Financial analytics and trends
+
+  - `total`: Total revenue from all orders
+  - `currentMonth/lastMonth`: Monthly comparisons with detailed breakdown
+  - `yearToDate`: Year-to-date revenue and order metrics
+  - `revenueByMonth`: Monthly revenue trends for current year
+  - `monthlyGrowth`: Revenue growth percentage from last month
+
+- **topSellingProducts**: Best performing products
+
+  - Ranked by total revenue with product details
+  - Includes quantity sold and order count
+
+- **customers**: Customer analytics
+  - `total`: Total unique customers
+  - `topCustomers`: Top customers by total spending with order history
+
+### 2. Get Inventory Alerts
+
+Retrieves various inventory alerts including low stock items, out of stock products, high discount items, and discontinued products.
+
+- **Endpoint:** `GET /dashboard/inventory-alerts`
+- **Method:** GET
+- **Description:** Retrieves inventory alerts for proactive management
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Inventory alerts retrieved successfully",
+  "data": {
+    "lowStock": {
+      "count": 12,
+      "products": [
+        {
+          "code": "1234A",
+          "name": "Product Name",
+          "quantity": 5,
+          "status": "active",
+          "category": "Category Name"
+        }
+      ]
+    },
+    "outOfStock": {
+      "count": 3,
+      "products": [...]
+    },
+    "highDiscount": {
+      "count": 5,
+      "products": [...]
+    },
+    "discontinued": {
+      "count": 2,
+      "products": [...]
+    },
+    "soldOut": {
+      "count": 1,
+      "products": [...]
+    }
+  }
+}
+```
+
+**Alert Types Explained:**
+
+- **lowStock**: Products with quantity less than 10
+- **outOfStock**: Products with quantity equal to 0
+- **highDiscount**: Products with discount greater than 50%
+- **discontinued**: Products with status "discontinued"
+- **soldOut**: Products with status "sold_out"
+
+### 3. Get Recent Orders
+
+Retrieves the most recent orders with optional limit parameter.
+
+- **Endpoint:** `GET /dashboard/recent-orders?limit=${limit}`
+- **Method:** GET
+- **Description:** Retrieves recent orders sorted by creation date (newest first)
+
+**Query Parameters:**
+
+- `limit` (optional): Number of orders to retrieve (1-100, default: 10)
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Recent orders retrieved successfully",
+  "data": {
+    "orders": [
+      {
+        "code": "251221-6BEPSWK",
+        "customer": {
+          "name": "John Doe",
+          "phone": "+12345678905555555",
+          "address": "123 Main St, City, State 1234555sdfasfwer ewrwerwe"
+        },
+        "totals": {
+          "subtotal": 900,
+          "discount": 50,
+          "final": 850
+        },
+        "status": "confirmed",
+        "createdAt": "2025-12-20T21:13:55.002Z"
+      }
+    ],
+    "count": 2,
+    "limit": 10
+  }
+}
+```
+
+**Features:**
+
+- Orders are sorted by creation date (newest first)
+- Optional limit parameter with validation (1-100)
+- Optimized field selection for performance
+- Complete customer and order information
+
 ## Inventory Management
 
 The API includes comprehensive inventory management features:
@@ -1021,4 +1294,4 @@ All endpoints may return these common error responses:
 
 ## Last Updated
 
-This documentation was last updated on: 2025-12-20
+This documentation was last updated on: 2025-12-21

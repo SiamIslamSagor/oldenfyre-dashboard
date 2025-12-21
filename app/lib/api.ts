@@ -223,10 +223,91 @@ export const dashboardApi = {
   getStats: (): Promise<
     AxiosResponse<
       ApiResponse<{
-        totalProducts: number;
-        totalOrders: number;
-        lowStockItems: number;
-        pendingOrders: number;
+        products: {
+          total: number;
+          active: number;
+          inactive: number;
+          discontinued: number;
+          soldOut: number;
+          lowStock: number;
+          outOfStock: number;
+          totalInventoryValue: number;
+          totalCostValue: number;
+          totalPotentialRevenue: number;
+          averageProductPrice: number;
+          averageProductCost: number;
+          byCategory: Array<{
+            _id: string;
+            count: number;
+            totalQuantity: number;
+            totalValue: number;
+          }>;
+        };
+        orders: {
+          total: number;
+          thisMonth: number;
+          lastMonth: number;
+          thisYear: number;
+          last7Days: number;
+          last30Days: number;
+          last90Days: number;
+          byStatus: Record<string, number>;
+          monthlyGrowth: number;
+        };
+        revenue: {
+          total: number;
+          totalSubtotal: number;
+          totalDiscount: number;
+          averageOrderValue: number;
+          currentMonth: {
+            revenue: number;
+            subtotal: number;
+            discount: number;
+            orderCount: number;
+            averageOrderValue: number;
+          };
+          lastMonth: {
+            revenue: number;
+            subtotal: number;
+            discount: number;
+            orderCount: number;
+            averageOrderValue: number;
+          };
+          yearToDate: {
+            revenue: number;
+            orderCount: number;
+            averageOrderValue: number;
+          };
+          monthlyGrowth: number;
+          revenueByMonth: Array<{
+            _id: number;
+            revenue: number;
+            orderCount: number;
+            averageOrderValue: number;
+          }>;
+        };
+        topSellingProducts: Array<{
+          _id: string;
+          totalQuantity: number;
+          totalRevenue: number;
+          orderCount: number;
+          productDetails: {
+            name: string;
+            category: string;
+          };
+        }>;
+        customers: {
+          total: number;
+          topCustomers: Array<{
+            _id: string;
+            name: string;
+            orderCount: number;
+            totalSpent: number;
+            averageOrderValue: number;
+            firstOrderDate: string;
+            lastOrderDate: string;
+          }>;
+        };
       }>
     >
   > => apiClient.get("/dashboard/stats"),
@@ -234,41 +315,136 @@ export const dashboardApi = {
   // Get recent orders
   getRecentOrders: (
     limit: number = 5
-  ): Promise<AxiosResponse<ApiResponse<Order[]>>> =>
-    apiClient.get(`/dashboard/recent-orders?limit=${limit}`),
+  ): Promise<
+    AxiosResponse<
+      ApiResponse<{
+        orders: Order[];
+        count: number;
+        limit: number;
+      }>
+    >
+  > => apiClient.get(`/dashboard/recent-orders?limit=${limit}`),
 
   // Get inventory alerts
   getInventoryAlerts: (): Promise<
     AxiosResponse<
-      ApiResponse<
-        Array<{
-          productCode: string;
-          productName: string;
-          currentStock: number;
-          threshold: number;
-          severity: "low" | "critical";
-        }>
-      >
+      ApiResponse<{
+        lowStock: {
+          count: number;
+          products: Array<{
+            code: string;
+            name: string;
+            quantity: number;
+            status: string;
+            category: string;
+          }>;
+        };
+        outOfStock: {
+          count: number;
+          products: Array<{
+            code: string;
+            name: string;
+            quantity: number;
+            status: string;
+            category: string;
+          }>;
+        };
+        highDiscount: {
+          count: number;
+          products: Array<{
+            code: string;
+            name: string;
+            quantity: number;
+            status: string;
+            category: string;
+          }>;
+        };
+        discontinued: {
+          count: number;
+          products: Array<{
+            code: string;
+            name: string;
+            quantity: number;
+            status: string;
+            category: string;
+          }>;
+        };
+        soldOut: {
+          count: number;
+          products: Array<{
+            code: string;
+            name: string;
+            quantity: number;
+            status: string;
+            category: string;
+          }>;
+        };
+      }>
     >
   > => apiClient.get("/dashboard/inventory-alerts"),
 };
 
 // Utility functions
-export const handleApiError = (error: any): string => {
-  if (error.response?.data?.message) {
-    return error.response.data.message;
+export const handleApiError = (error: unknown): string => {
+  // Handle timeout errors specifically
+  if (error && typeof error === "object" && "code" in error) {
+    const axiosError = error as { code?: string; message?: string };
+    if (
+      axiosError.code === "ECONNABORTED" ||
+      axiosError.message?.includes("timeout")
+    ) {
+      return "Connection timeout. The server is taking too long to respond. Please check if the backend server is running.";
+    }
   }
-  if (error.response?.data?.error) {
-    return error.response.data.error;
+
+  // Handle network errors
+  if (error && typeof error === "object" && "response" in error) {
+    const axiosError = error as {
+      response?: {
+        data?: { message?: string; error?: string };
+        status?: number;
+      };
+    };
+    if (axiosError.response?.status === 0 || !axiosError.response) {
+      return "Unable to connect to the server. Please check if the backend server is running and accessible.";
+    }
+    if (axiosError.response?.data?.message) {
+      return axiosError.response.data.message;
+    }
+    if (axiosError.response?.data?.error) {
+      return axiosError.response.data.error;
+    }
   }
-  if (error.message) {
-    return error.message;
+
+  // Handle other error types
+  if (error && typeof error === "object" && "message" in error) {
+    return (error as { message: string }).message;
   }
-  return "An unexpected error occurred";
+
+  return "An unexpected error occurred while connecting to the server.";
 };
 
-export const isNetworkError = (error: any): boolean => {
-  return !error.response && error.code === "NETWORK_ERROR";
+export const isNetworkError = (error: unknown): boolean => {
+  if (error && typeof error === "object" && "code" in error) {
+    const axiosError = error as { code?: string };
+    return (
+      axiosError.code === "ECONNABORTED" ||
+      axiosError.code === "NETWORK_ERROR" ||
+      axiosError.code === "ERR_NETWORK"
+    );
+  }
+  return false;
+};
+
+export const isTimeoutError = (error: unknown): boolean => {
+  if (error && typeof error === "object" && "code" in error) {
+    const axiosError = error as { code?: string; message?: string };
+    return (
+      axiosError.code === "ECONNABORTED" ||
+      !!axiosError.message?.includes("timeout")
+    );
+  }
+  return false;
 };
 
 export default apiClient;

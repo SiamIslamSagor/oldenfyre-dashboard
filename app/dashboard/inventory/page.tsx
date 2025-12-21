@@ -1,19 +1,47 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { dashboardApi, handleApiError } from "../../lib/api";
+import { dashboardApi, handleApiError, productApi } from "../../lib/api";
 
 interface InventoryAlert {
-  productCode: string;
-  productName: string;
-  currentStock: number;
-  threshold: number;
-  severity: "low" | "critical";
+  code: string;
+  name: string;
+  quantity: number;
+  status: string;
+  category: string;
+}
+
+interface InventoryItem {
+  _id: string;
+  code: string;
+  name: string;
+  category: string;
+  quantity: number;
+  lowStockThreshold: number;
+  status: "in_stock" | "low_stock" | "out_of_stock";
+  pricing: {
+    buy: number;
+    sell: number;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function InventoryPage() {
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<InventoryAlert[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [alerts, setAlerts] = useState<{
+    lowStock: { count: number; products: InventoryAlert[] };
+    outOfStock: { count: number; products: InventoryAlert[] };
+    highDiscount: { count: number; products: InventoryAlert[] };
+    discontinued: { count: number; products: InventoryAlert[] };
+    soldOut: { count: number; products: InventoryAlert[] };
+  }>({
+    lowStock: { count: 0, products: [] },
+    outOfStock: { count: 0, products: [] },
+    highDiscount: { count: 0, products: [] },
+    discontinued: { count: 0, products: [] },
+    soldOut: { count: 0, products: [] },
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,41 +53,47 @@ export default function InventoryPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch inventory alerts
-        const alertsResponse = await dashboardApi.getInventoryAlerts();
-        if (alertsResponse.data.success) {
-          setAlerts(alertsResponse.data.data);
-        } else {
-          setError(alertsResponse.data.message);
-        }
+        // Fetch all products instead of inventory alerts for complete data
+        const productsResponse = await productApi.getAll();
+        console.log("products data:", productsResponse);
 
-        // Fetch inventory items (we'll use the alerts to get inventory data)
-        // In a real implementation, you'd have a separate endpoint for inventory items
-        // For now, we'll create mock inventory data based on alerts
-        const mockInventory = alertsResponse.data.success
-          ? alertsResponse.data.data.map((alert: InventoryAlert) => ({
-              _id: alert.productCode,
-              code: alert.productCode,
-              name: alert.productName,
-              category: "General",
-              quantity: alert.currentStock,
-              lowStockThreshold: alert.threshold,
+        if (productsResponse.data.success) {
+          const allProducts = productsResponse.data.data;
+
+          // Fetch inventory alerts for alert counts
+          const alertsResponse = await dashboardApi.getInventoryAlerts();
+          if (alertsResponse.data.success) {
+            setAlerts(alertsResponse.data.data);
+          }
+
+          // Transform products to inventory format with proper status calculation
+          const inventoryData = allProducts.map(
+            (product): InventoryItem => ({
+              _id: product._id,
+              code: product.code,
+              name: product.name,
+              category: product.category,
+              quantity: product.quantity,
+              lowStockThreshold: 5, // Default threshold
               status:
-                alert.currentStock === 0
+                product.quantity === 0
                   ? "out_of_stock"
-                  : alert.currentStock < alert.threshold
+                  : product.quantity < 5
                   ? "low_stock"
-                  : "in_stock",
+                  : ("in_stock" as const),
               pricing: {
-                buy: 10,
-                sell: 15,
+                buy: product.pricing.buy,
+                sell: product.pricing.sell,
               },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            }))
-          : [];
+              createdAt: product.createdAt,
+              updatedAt: product.updatedAt,
+            })
+          );
 
-        setInventory(mockInventory);
+          setInventory(inventoryData);
+        } else {
+          setError(productsResponse.data.message);
+        }
       } catch (error) {
         console.error("Error fetching inventory data:", error);
         setError(handleApiError(error));
@@ -71,15 +105,31 @@ export default function InventoryPage() {
     fetchInventoryData();
   }, []);
 
-  const filteredInventory = inventory.filter(item => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filterStatus === "all" || item.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  const filteredInventory = inventory
+    .filter(item => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter =
+        filterStatus === "all" || item.status === filterStatus;
+      return matchesSearch && matchesFilter;
+    })
+    .sort((a, b) => {
+      // Priority order: out_of_stock first, then low_stock, then others
+      const statusPriority = {
+        out_of_stock: 0,
+        low_stock: 1,
+        in_stock: 2,
+      };
+
+      const aPriority = statusPriority[a.status] ?? 999;
+      const bPriority = statusPriority[b.status] ?? 999;
+
+      return aPriority - bPriority;
+    });
+
+  console.log("filteredInventory", filteredInventory);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -91,17 +141,6 @@ export default function InventoryPage() {
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getAlertSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return "bg-red-100 border-red-200 text-red-800";
-      case "low":
-        return "bg-yellow-100 border-yellow-200 text-yellow-800";
-      default:
-        return "bg-gray-100 border-gray-200 text-gray-800";
     }
   };
 
@@ -131,12 +170,25 @@ export default function InventoryPage() {
   }
 
   if (error) {
+    const isConnectionError =
+      error.includes("timeout") ||
+      error.includes("Unable to connect") ||
+      error.includes("server is running");
+
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-4">
+        <div
+          className={`${
+            isConnectionError
+              ? "bg-yellow-50 border-yellow-200"
+              : "bg-red-50 border-red-200"
+          } border rounded-lg p-6 max-w-md mx-4`}
+        >
           <div className="flex items-center">
             <svg
-              className="w-6 h-6 text-red-600 mr-3"
+              className={`w-6 h-6 ${
+                isConnectionError ? "text-yellow-600" : "text-red-600"
+              } mr-3`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -150,13 +202,39 @@ export default function InventoryPage() {
               />
             </svg>
             <div>
-              <h3 className="text-lg font-medium text-red-800">
-                Error Loading Inventory Data
+              <h3
+                className={`text-lg font-medium ${
+                  isConnectionError ? "text-yellow-800" : "text-red-800"
+                }`}
+              >
+                {isConnectionError
+                  ? "Connection Error"
+                  : "Error Loading Inventory Data"}
               </h3>
-              <p className="text-sm text-red-600 mt-2">{error}</p>
+              <p
+                className={`text-sm ${
+                  isConnectionError ? "text-yellow-600" : "text-red-600"
+                } mt-2`}
+              >
+                {error}
+              </p>
+              {isConnectionError && (
+                <div className="mt-3 text-sm text-gray-600">
+                  <p className="font-medium mb-1">To resolve this issue:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Ensure backend server is running on localhost:3000</li>
+                    <li>Check that MongoDB is connected</li>
+                    <li>Verify API endpoints are accessible</li>
+                  </ul>
+                </div>
+              )}
               <button
                 onClick={handleRetry}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className={`mt-4 px-4 py-2 ${
+                  isConnectionError
+                    ? "bg-yellow-600 hover:bg-yellow-700"
+                    : "bg-red-600 hover:bg-red-700"
+                } text-white rounded-lg transition-colors`}
               >
                 Try Again
               </button>
@@ -180,59 +258,75 @@ export default function InventoryPage() {
       </div>
 
       {/* Inventory Alerts */}
-      {alerts.length > 0 && (
+      {(alerts.lowStock.count > 0 || alerts.outOfStock.count > 0) && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Inventory Alerts
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {alerts.map(alert => (
+            {/* Low Stock Alerts */}
+            {alerts.lowStock.products.map(alert => (
               <div
-                key={alert.productCode}
-                className={`border rounded-lg p-4 ${getAlertSeverityColor(
-                  alert.severity
-                )}`}
+                key={alert.code}
+                className="border rounded-lg p-4 bg-yellow-100 border-yellow-200 text-yellow-800"
               >
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    {alert.severity === "critical" ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334.213 2.98-1.732 3L13.732 4c-.77 1.333-.184 1.707.707 1.707H17m0 0a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 00-2-2V7a2 2 0 012-2h2A2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334.213 2.98-1.732 3L13.732 4c-.77 1.333-.184 1.707.707 1.707H17m0 0a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 00-2-2V7a2 2 0 012-2h2A2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334.213 2.98-1.732 3L13.732 4c-.77 1.333-.184 1.707.707 1.707H17m0 0a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 00-2-2V7a2 2 0 012-2h2A2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                        clipRule="evenodd"
+                      />
+                    </svg>
                   </div>
                   <div className="ml-3 flex-1">
                     <p className="text-sm font-medium">
-                      {alert.productName} ({alert.productCode})
+                      {alert.name} ({alert.code})
                     </p>
                     <p className="text-sm mt-1">
-                      Current stock:{" "}
-                      <span className="font-semibold">
-                        {alert.currentStock}
-                      </span>{" "}
-                      (Threshold: {alert.threshold})
+                      Low Stock:{" "}
+                      <span className="font-semibold">{alert.quantity}</span>{" "}
+                      items left
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {/* Out of Stock Alerts */}
+            {alerts.outOfStock.products.map(alert => (
+              <div
+                key={alert.code}
+                className="border rounded-lg p-4 bg-red-100 border-red-200 text-red-800"
+              >
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334.213 2.98-1.732 3L13.732 4c-.77 1.333-.184 1.707.707 1.707H17m0 0a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 00-2-2V7a2 2 0 012-2h2A2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium">
+                      {alert.name} ({alert.code})
+                    </p>
+                    <p className="text-sm mt-1">
+                      Out of Stock:{" "}
+                      <span className="font-semibold">{alert.quantity}</span>{" "}
+                      items
                     </p>
                   </div>
                 </div>
@@ -296,9 +390,9 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredInventory.map(item => (
+              {filteredInventory.map((item, idx) => (
                 <tr
-                  key={item._id}
+                  key={item._id + idx * 999}
                   className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -381,7 +475,7 @@ export default function InventoryPage() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012 2h2a2 2 0 012 2"
                           />
                         </svg>
                       </button>

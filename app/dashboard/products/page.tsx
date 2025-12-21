@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  productApi,
-  handleApiError,
-  Product,
-  CreateProductRequest,
-  UpdateProductRequest,
-} from "../../lib/api";
+import { productApi, handleApiError, Product } from "../../lib/api";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -30,7 +24,8 @@ export default function ProductsPage() {
         }
       } catch (error) {
         console.error("Error fetching products:", error);
-        setError(handleApiError(error));
+        const errorMessage = handleApiError(error);
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -99,12 +94,25 @@ export default function ProductsPage() {
   }
 
   if (error) {
+    const isConnectionError =
+      error.includes("timeout") ||
+      error.includes("Unable to connect") ||
+      error.includes("server is running");
+
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-4">
+        <div
+          className={`${
+            isConnectionError
+              ? "bg-yellow-50 border-yellow-200"
+              : "bg-red-50 border-red-200"
+          } border rounded-lg p-6 max-w-md mx-4`}
+        >
           <div className="flex items-center">
             <svg
-              className="w-6 h-6 text-red-600 mr-3"
+              className={`w-6 h-6 ${
+                isConnectionError ? "text-yellow-600" : "text-red-600"
+              } mr-3`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -118,13 +126,39 @@ export default function ProductsPage() {
               />
             </svg>
             <div>
-              <h3 className="text-lg font-medium text-red-800">
-                Error Loading Products
+              <h3
+                className={`text-lg font-medium ${
+                  isConnectionError ? "text-yellow-800" : "text-red-800"
+                }`}
+              >
+                {isConnectionError
+                  ? "Connection Error"
+                  : "Error Loading Products"}
               </h3>
-              <p className="text-sm text-red-600 mt-2">{error}</p>
+              <p
+                className={`text-sm ${
+                  isConnectionError ? "text-yellow-600" : "text-red-600"
+                } mt-2`}
+              >
+                {error}
+              </p>
+              {isConnectionError && (
+                <div className="mt-3 text-sm text-gray-600">
+                  <p className="font-medium mb-1">To resolve this issue:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Ensure backend server is running on localhost:3000</li>
+                    <li>Check that MongoDB is connected</li>
+                    <li>Verify API endpoints are accessible</li>
+                  </ul>
+                </div>
+              )}
               <button
                 onClick={handleRetry}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className={`mt-4 px-4 py-2 ${
+                  isConnectionError
+                    ? "bg-yellow-600 hover:bg-yellow-700"
+                    : "bg-red-600 hover:bg-red-700"
+                } text-white rounded-lg transition-colors`}
               >
                 Try Again
               </button>
