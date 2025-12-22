@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sessionData = {
         timestamp: Date.now(),
       };
+      window.location.href = "/dashboard";
       localStorage.setItem("oldenfyre_session", JSON.stringify(sessionData));
       setIsAuthenticated(true);
       return true;

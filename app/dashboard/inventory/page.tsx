@@ -379,7 +379,10 @@ export default function InventoryPage() {
                   Stock Level
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Status
+                  Stock Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Product Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Last Restocked
@@ -416,21 +419,6 @@ export default function InventoryPage() {
                           Threshold: {item.lowStockThreshold}
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${getStatusColor(
-                              item.status
-                            )}`}
-                            style={{
-                              width: `${getStockPercentage(
-                                item.quantity,
-                                item.lowStockThreshold
-                              )}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -441,6 +429,11 @@ export default function InventoryPage() {
                     >
                       {item.status.replace("_", " ")}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      <span className="italic">Will be implemented</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(item.createdAt)}

@@ -19,6 +19,7 @@ export default function ProductsPage() {
         const response = await productApi.getAll();
         if (response.data.success) {
           setProducts(response.data.data);
+          console.log("products:", response.data.data);
         } else {
           setError(response.data.message);
         }
@@ -74,9 +75,9 @@ export default function ProductsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("bn-BD", {
       style: "currency",
-      currency: "USD",
+      currency: "BDT",
     }).format(amount);
   };
 
@@ -290,11 +291,13 @@ export default function ProductsPage() {
                       <div className="text-sm text-gray-900">
                         {formatCurrency(product.pricing.sell)}
                       </div>
-                      {product.pricing.discount && (
-                        <div className="text-xs text-green-600">
-                          ({product.pricing.discount}% off)
-                        </div>
-                      )}
+                      {product?.pricing?.discount !== undefined &&
+                        product.pricing.discount > 0 && (
+                          <div className="text-xs text-green-600">
+                            ({formatCurrency(product.pricing.discount)} off)
+                          </div>
+                        )}
+
                       <div className="text-xs text-gray-500">
                         Buy: {formatCurrency(product.pricing.buy)}
                       </div>
