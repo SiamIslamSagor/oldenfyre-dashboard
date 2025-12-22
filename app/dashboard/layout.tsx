@@ -111,13 +111,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Fixed Desktop Sidebar */}
-      <div className="hidden lg:flex lg:flex-shrink-0">
+      <div className="hidden lg:flex lg:shrink-0">
         <div className="fixed inset-y-0 left-0 z-50 w-64">
           <div className="flex flex-col h-full bg-white border-r border-gray-200 shadow-sm">
             {/* Sidebar Header */}
             <div className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-200">
               <div className="flex items-center">
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
                     <svg
                       className="w-5 h-5 text-white"
@@ -225,7 +225,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <div className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-200">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
                 <svg
                   className="w-5 h-5 text-white"
