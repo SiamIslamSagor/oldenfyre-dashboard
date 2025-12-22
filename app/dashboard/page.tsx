@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/context";
 import { dashboardApi, handleApiError, Order } from "../lib/api";
+import Link from "next/link";
 
 interface InventoryAlert {
   code: string;
@@ -175,6 +176,7 @@ export default function DashboardPage() {
           const statsResponse = await dashboardApi.getStats();
           if (statsResponse.data.success) {
             setStats(statsResponse.data.data);
+            console.log("stats:", statsResponse.data.data);
           } else {
             setError(statsResponse.data.message);
             return;
@@ -402,9 +404,17 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-gray-900">
                 {stats.products.total}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {stats.products.active} active
-              </p>
+              <div className="flex gap-5 items-center">
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.products.active} active
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.products.inactive} in_active
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.products.discontinued} discontinued
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -464,7 +474,9 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-gray-900">
                 {stats.products.lowStock}
               </p>
-              <p className="text-xs text-red-500 mt-1">Requires attention</p>
+              {stats.products.lowStock > 0 && (
+                <p className="text-xs text-red-500 mt-1">Requires attention</p>
+              )}
             </div>
           </div>
         </div>
@@ -494,7 +506,9 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-gray-900">
                 {stats.orders.byStatus.pending || 0}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Needs processing</p>
+              {stats.orders.byStatus.pending > 0 && (
+                <p className="text-xs text-gray-500 mt-1">Needs processing</p>
+              )}
             </div>
           </div>
         </div>
@@ -588,12 +602,12 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-900">
                 Recent Orders
               </h2>
-              <a
+              <Link
                 href="/dashboard/orders"
                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
               >
                 View all
-              </a>
+              </Link>
             </div>
           </div>
           <div className="p-6">
@@ -643,7 +657,7 @@ export default function DashboardPage() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4">
-              <a
+              <Link
                 href="/dashboard/products/new"
                 className="flex items-center justify-center px-4 py-3 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all hover:shadow-md"
               >
@@ -662,8 +676,8 @@ export default function DashboardPage() {
                   />
                 </svg>
                 Add Product
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/dashboard/orders/new"
                 className="flex items-center justify-center px-4 py-3 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-all hover:shadow-md"
               >
@@ -682,7 +696,7 @@ export default function DashboardPage() {
                   />
                 </svg>
                 New Order
-              </a>
+              </Link>
               <a
                 href="/dashboard/inventory"
                 className="flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all hover:shadow-md"
