@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { dashboardApi, handleApiError, productApi } from "../../lib/api";
 
 interface InventoryAlert {
@@ -28,6 +29,7 @@ interface InventoryItem {
 }
 
 export default function InventoryPage() {
+  const router = useRouter();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [alerts, setAlerts] = useState<{
     lowStock: { count: number; products: InventoryAlert[] };
@@ -46,6 +48,7 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
 
   useEffect(() => {
     const fetchInventoryData = async () => {
@@ -159,6 +162,38 @@ export default function InventoryPage() {
   const handleRetry = () => {
     setError(null);
     window.location.reload();
+  };
+
+  const handleViewProduct = (code: string) => {
+    router.push(`/dashboard/products/${code}`);
+  };
+
+  const handleEditProduct = (code: string) => {
+    router.push(`/dashboard/products/${code}/edit`);
+  };
+
+  const handleRestockProduct = (code: string, currentQuantity: number) => {
+    const restockAmount = prompt(`Enter restock amount for ${code}:`, "10");
+    if (
+      restockAmount &&
+      !isNaN(Number(restockAmount)) &&
+      Number(restockAmount) > 0
+    ) {
+      // This would need to be implemented with a proper API endpoint
+      alert(
+        `Restocking ${code} with ${restockAmount} units. This feature requires backend implementation.`
+      );
+    }
+  };
+
+  const getAlertCount = () => {
+    return (
+      alerts.lowStock.count +
+      alerts.outOfStock.count +
+      alerts.highDiscount.count +
+      alerts.discontinued.count +
+      alerts.soldOut.count
+    );
   };
 
   if (loading) {
@@ -440,7 +475,11 @@ export default function InventoryPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button
+                        onClick={() => handleViewProduct(item.code)}
+                        className="text-gray-600 hover:text-gray-900"
+                        title="View Product"
+                      >
                         <svg
                           className="w-5 h-5"
                           fill="none"
@@ -452,11 +491,43 @@ export default function InventoryPage() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                           />
                         </svg>
                       </button>
-                      <button className="text-green-600 hover:text-green-900">
+                      <button
+                        onClick={() => handleEditProduct(item.code)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit Product"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 011-1h2a1 1 0 011 1"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleRestockProduct(item.code, item.quantity)
+                        }
+                        className="text-green-600 hover:text-green-900"
+                        title="Restock Product"
+                      >
                         <svg
                           className="w-5 h-5"
                           fill="none"

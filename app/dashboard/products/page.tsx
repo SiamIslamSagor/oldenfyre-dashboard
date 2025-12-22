@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { productApi, handleApiError, Product } from "../../lib/api";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -84,6 +87,40 @@ export default function ProductsPage() {
   const handleRetry = () => {
     setError(null);
     window.location.reload();
+  };
+
+  const handleViewProduct = (code: string) => {
+    router.push(`/dashboard/products/${code}`);
+  };
+
+  const handleEditProduct = (code: string) => {
+    router.push(`/dashboard/products/${code}/edit`);
+  };
+
+  const handleDeleteProduct = async (code: string, name: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${name}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(code);
+      const response = await productApi.delete(code);
+      if (response.data.success) {
+        // Remove the deleted product from the list
+        setProducts(prev => prev.filter(product => product.code !== code));
+      } else {
+        setError(response.data.message);
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      setError(handleApiError(error));
+    } finally {
+      setDeleteLoading(null);
+    }
   };
 
   if (loading) {
@@ -326,7 +363,37 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
-                        <button className="text-blue-600 hover:text-blue-900">
+                        <button
+                          onClick={() => handleViewProduct(product.code)}
+                          className="text-gray-600 hover:text-gray-900"
+                          title="View Product"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleEditProduct(product.code)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Edit Product"
+                        >
                           <svg
                             className="w-5 h-5"
                             fill="none"
@@ -342,21 +409,32 @@ export default function ProductsPage() {
                             />
                           </svg>
                         </button>
-                        <button className="text-red-600 hover:text-red-900">
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
+                        <button
+                          onClick={() =>
+                            handleDeleteProduct(product.code, product.name)
+                          }
+                          disabled={deleteLoading === product.code}
+                          className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete Product"
+                        >
+                          {deleteLoading === product.code ? (
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
+                          ) : (
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          )}
                         </button>
                       </div>
                     </td>
