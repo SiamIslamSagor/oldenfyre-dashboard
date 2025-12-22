@@ -1,8 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 
 // API Configuration
-const BASE_URL = "https://oldenfyre-inventory.vercel.app/api";
-// const BASE_URL = "http://localhost:3000/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 // Create axios instance with default configuration
 const apiClient: AxiosInstance = axios.create({
