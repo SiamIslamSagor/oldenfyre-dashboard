@@ -384,16 +384,16 @@ export default function OrdersPage() {
                           >
                             {productImage ? (
                               <Image
-                                width={112}
-                                height={112}
+                                width={80}
+                                height={80}
                                 src={productImage}
                                 alt={product?.name || item.productCode}
-                                className="w-10 h-10 object-cover rounded border border-gray-200"
+                                className="w-20 h-20 object-cover rounded border border-gray-200"
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                              <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
                                 <svg
-                                  className="w-5 h-5 text-gray-400"
+                                  className="w-8 h-8 text-gray-400"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
