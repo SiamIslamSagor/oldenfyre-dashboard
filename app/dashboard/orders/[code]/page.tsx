@@ -9,6 +9,7 @@ import {
   Order,
   Product,
 } from "../../../lib/api";
+import Image from "next/image";
 
 export default function OrderDetailPage() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,10 +87,17 @@ export default function OrderDetailPage() {
   const handleStatusUpdate = async (newStatus: string) => {
     if (!order) return;
 
+    setPendingStatus(newStatus);
+    setShowStatusModal(true);
+  };
+
+  const confirmStatusUpdate = async () => {
+    if (!order || !pendingStatus) return;
+
     try {
       setStatusLoading(true);
       const response = await orderApi.updateStatus(order.code, {
-        status: newStatus,
+        status: pendingStatus,
       });
       if (response.data.success) {
         setOrder(response.data.data);
@@ -99,7 +109,14 @@ export default function OrderDetailPage() {
       setError(handleApiError(error));
     } finally {
       setStatusLoading(false);
+      setShowStatusModal(false);
+      setPendingStatus(null);
     }
+  };
+
+  const cancelStatusUpdate = () => {
+    setShowStatusModal(false);
+    setPendingStatus(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -325,6 +342,9 @@ export default function OrderDetailPage() {
                       Product
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Details
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Quantity
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -338,15 +358,86 @@ export default function OrderDetailPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {order.items.map((item, index) => {
                     const productDetails = getProductDetails(item.productCode);
+                    console.log("product details:", productDetails);
+                    const productImage =
+                      productDetails?.media?.thumbnail ||
+                      productDetails?.media?.images?.[0];
                     return (
-                      <tr key={index}>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            <div className="font-medium text-gray-900">
-                              {productDetails?.name || item.productCode}
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-4">
+                          <div className="flex items-center space-x-4">
+                            {productImage ? (
+                              <Image
+                                width={112}
+                                height={112}
+                                src={productImage}
+                                alt={productDetails?.name || item.productCode}
+                                className="w-28 h-28 object-cover rounded-lg border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-28 h-28 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                <svg
+                                  className="w-8 h-8 text-gray-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                  />
+                                </svg>
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {productDetails?.name || item.productCode}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                SKU: {item.productCode}
+                              </div>
                             </div>
-                            <div className="text-gray-500">
-                              {item.productCode}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-sm">
+                            <div className="space-y-1">
+                              {productDetails?.category && (
+                                <div>
+                                  <span className="text-gray-600">
+                                    Category:
+                                  </span>{" "}
+                                  <span className="text-gray-900 font-medium">
+                                    {productDetails.category}
+                                  </span>
+                                </div>
+                              )}
+                              {productDetails?.description && (
+                                <div className="text-gray-600 text-xs max-w-xs line-clamp-2">
+                                  {productDetails.description}
+                                </div>
+                              )}
+                              {productDetails?.quantity !== undefined && (
+                                <div>
+                                  <span className="text-gray-600">
+                                    Available stock:
+                                  </span>{" "}
+                                  <span
+                                    className={`font-medium ${
+                                      productDetails.quantity > 0
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    }`}
+                                  >
+                                    {productDetails.quantity > 0
+                                      ? `${productDetails.quantity} available`
+                                      : "Out of stock"}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -369,43 +460,53 @@ export default function OrderDetailPage() {
                     );
                   })}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50">
-                    <td
-                      colSpan={3}
-                      className="px-4 py-3 text-right text-sm font-medium text-gray-900"
-                    >
-                      Subtotal:
-                    </td>
-                    <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                      {formatCurrency(order.totals.subtotal)}
-                    </td>
-                  </tr>
-                  {order.totals.discount && order.totals.discount > 0 && (
-                    <tr className="bg-gray-50">
+                {(() => {
+                  const rows = [
+                    <tr key="subtotal" className="bg-gray-50">
                       <td
-                        colSpan={3}
+                        colSpan={4}
                         className="px-4 py-3 text-right text-sm font-medium text-gray-900"
                       >
-                        Discount:
+                        Subtotal:
                       </td>
-                      <td className="px-4 py-3 text-sm font-bold text-green-600">
-                        -{formatCurrency(order.totals.discount)}
+                      <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                        {formatCurrency(order.totals.subtotal)}
+                      </td>
+                    </tr>,
+                  ];
+
+                  if (order.totals.discount && order.totals.discount > 0) {
+                    rows.push(
+                      <tr key="discount" className="bg-gray-50">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-3 text-right text-sm font-medium text-gray-900"
+                        >
+                          Discount:
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-green-600">
+                          -{formatCurrency(order.totals.discount)}
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  rows.push(
+                    <tr key="final" className="bg-gray-100">
+                      <td
+                        colSpan={4}
+                        className="px-4 py-3 text-right text-sm font-medium text-gray-900"
+                      >
+                        Final Total:
+                      </td>
+                      <td className="px-4 py-3 text-lg font-bold text-gray-900">
+                        {formatCurrency(order.totals.final)}
                       </td>
                     </tr>
-                  )}
-                  <tr className="bg-gray-100">
-                    <td
-                      colSpan={3}
-                      className="px-4 py-3 text-right text-sm font-medium text-gray-900"
-                    >
-                      Final Total:
-                    </td>
-                    <td className="px-4 py-3 text-lg font-bold text-gray-900">
-                      {formatCurrency(order.totals.final)}
-                    </td>
-                  </tr>
-                </tfoot>
+                  );
+
+                  return <tfoot>{rows}</tfoot>;
+                })()}
               </table>
             </div>
           </div>
@@ -450,9 +551,14 @@ export default function OrderDetailPage() {
                           : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      {statusLoading
-                        ? "Updating..."
-                        : status.charAt(0).toUpperCase() + status.slice(1)}
+                      {statusLoading && pendingStatus === status ? (
+                        <span className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                          Updating...
+                        </span>
+                      ) : (
+                        status.charAt(0).toUpperCase() + status.slice(1)
+                      )}
                     </button>
                   ))}
                 </div>
@@ -503,6 +609,79 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {showStatusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-500 opacity-75"
+            onClick={cancelStatusUpdate}
+          ></div>
+
+          <div className="relative bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full sm:p-6">
+            <div>
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                <svg
+                  className="h-6 w-6 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="mt-3 text-center sm:mt-5">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Update Order Status
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to update the order status from{" "}
+                    <span className="font-semibold text-gray-700">
+                      {order.status}
+                    </span>{" "}
+                    to{" "}
+                    <span className="font-semibold text-gray-700">
+                      {pendingStatus}
+                    </span>
+                    ?
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+              <button
+                type="button"
+                onClick={confirmStatusUpdate}
+                disabled={statusLoading}
+                className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-2 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {statusLoading ? (
+                  <span className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Updating...
+                  </span>
+                ) : (
+                  "Confirm"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={cancelStatusUpdate}
+                disabled={statusLoading}
+                className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:col-start-1 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

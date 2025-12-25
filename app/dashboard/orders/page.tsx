@@ -2,16 +2,53 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { orderApi, handleApiError, Order } from "../../lib/api";
+import {
+  orderApi,
+  productApi,
+  handleApiError,
+  Order,
+  Product,
+} from "../../lib/api";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Record<string, Product>>({});
   const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+
+  console.log("loading products:", productsLoading);
+
+  const fetchProductsByCodes = async (productCodes: string[]) => {
+    try {
+      setProductsLoading(true);
+      const uniqueCodes = [...new Set(productCodes)];
+      const productMap: Record<string, Product> = {};
+
+      for (const code of uniqueCodes) {
+        try {
+          const response = await productApi.getByCode(code);
+          if (response.data.success) {
+            productMap[code] = response.data.data;
+          }
+        } catch (err) {
+          console.error(`Error fetching product ${code}:`, err);
+        }
+      }
+
+      setProducts(productMap);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -21,7 +58,17 @@ export default function OrdersPage() {
 
         const response = await orderApi.getAll();
         if (response.data.success) {
-          setOrders(response.data.data);
+          const ordersData = response.data.data;
+          setOrders(ordersData);
+          console.log("orders:", ordersData);
+
+          const allProductCodes = ordersData.flatMap(order =>
+            order.items.map(item => item.productCode)
+          );
+
+          if (allProductCodes.length > 0) {
+            await fetchProductsByCodes(allProductCodes);
+          }
         } else {
           setError(response.data.message);
         }
@@ -213,7 +260,7 @@ export default function OrdersPage() {
               Manage customer orders and fulfillment
             </p>
           </div>
-          <a
+          <Link
             href="/dashboard/orders/new"
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors"
           >
@@ -232,7 +279,7 @@ export default function OrdersPage() {
               />
             </svg>
             New Order
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -298,7 +345,8 @@ export default function OrdersPage() {
               {filteredOrders.map(order => (
                 <tr
                   key={order._id}
-                  className="hover:bg-gray-50 transition-colors"
+                  className="hover:bg-blue-50 cursor-pointer transition-colors"
+                  onClick={() => handleViewOrder(order.code)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
@@ -316,18 +364,61 @@ export default function OrdersPage() {
                       {order.customer.phone}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 mb-2">
                       {order.items.length} item
                       {order.items.length !== 1 ? "s" : ""}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {order.items.map((item, index) => (
-                        <span key={index}>
-                          {item.productCode} × {item.quantity}
-                          {index < order.items.length - 1 && ", "}
-                        </span>
-                      ))}
+                    <div className="space-y-2">
+                      {order.items.map((item, index) => {
+                        const product = products[item.productCode];
+                        const productImage =
+                          product?.media?.thumbnail ||
+                          product?.media?.images?.[0];
+
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center space-x-2"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {productImage ? (
+                              <Image
+                                width={112}
+                                height={112}
+                                src={productImage}
+                                alt={product?.name || item.productCode}
+                                className="w-10 h-10 object-cover rounded border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                                <svg
+                                  className="w-5 h-5 text-gray-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                  />
+                                </svg>
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="text-xs text-gray-900 font-medium">
+                                {product?.name || item.productCode}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {item.productCode} × {item.quantity}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -357,7 +448,10 @@ export default function OrdersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
                       <button
-                        onClick={() => handleViewOrder(order.code)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleViewOrder(order.code);
+                        }}
                         className="text-gray-600 hover:text-gray-900"
                         title="View Order"
                       >
@@ -383,7 +477,10 @@ export default function OrdersPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleEditOrder(order.code)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleEditOrder(order.code);
+                        }}
                         className="text-blue-600 hover:text-blue-900"
                         title="Edit Order"
                       >
@@ -403,9 +500,10 @@ export default function OrdersPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() =>
-                          handleDeleteOrder(order.code, order.customer.name)
-                        }
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteOrder(order.code, order.customer.name);
+                        }}
                         disabled={deleteLoading === order.code}
                         className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Delete Order"
