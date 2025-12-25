@@ -955,7 +955,8 @@ Provides comprehensive dashboard statistics including product analytics, order m
           "totalQuantity": 6,
           "totalValue": 720
         }
-      ]
+      ],
+      "totalProductQuantity": 304
     },
     "orders": {
       "total": 2,
@@ -1046,6 +1047,7 @@ Provides comprehensive dashboard statistics including product analytics, order m
   - `totalInventoryValue`: Sum of (quantity × sell price) for all products
   - `totalCostValue`: Sum of (quantity × buy price) for all products
   - `byCategory`: Products grouped by category with counts and values
+  - `totalProductQuantity`: Sum of available product quantity and total ordered quantity
 
 - **orders**: Order statistics and trends
 

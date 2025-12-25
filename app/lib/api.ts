@@ -241,6 +241,7 @@ export const dashboardApi = {
             totalQuantity: number;
             totalValue: number;
           }>;
+          totalProductQuantity: number;
         };
         orders: {
           total: number;

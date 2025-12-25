@@ -24,6 +24,18 @@ export default function DashboardPage() {
       soldOut: number;
       lowStock: number;
       outOfStock: number;
+      totalInventoryValue: number;
+      totalCostValue: number;
+      totalPotentialRevenue: number;
+      averageProductPrice: number;
+      averageProductCost: number;
+      byCategory: Array<{
+        _id: string;
+        count: number;
+        totalQuantity: number;
+        totalValue: number;
+      }>;
+      totalProductQuantity: number;
     };
     orders: {
       total: number;
@@ -99,6 +111,13 @@ export default function DashboardPage() {
       soldOut: 0,
       lowStock: 0,
       outOfStock: 0,
+      totalInventoryValue: 0,
+      totalCostValue: 0,
+      totalPotentialRevenue: 0,
+      averageProductPrice: 0,
+      averageProductCost: 0,
+      byCategory: [],
+      totalProductQuantity: 0,
     },
     orders: {
       total: 0,
@@ -283,6 +302,88 @@ export default function DashboardPage() {
     window.location.reload();
   };
 
+  const getMonthName = (monthNumber: number) => {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return months[monthNumber - 1] || "";
+  };
+
+  const getGrowthIndicator = (value: number) => {
+    if (value > 0) {
+      return (
+        <span className="flex items-center text-green-600">
+          <svg
+            className="w-4 h-4 mr-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+            />
+          </svg>
+          {value.toFixed(1)}%
+        </span>
+      );
+    } else if (value < 0) {
+      return (
+        <span className="flex items-center text-red-600">
+          <svg
+            className="w-4 h-4 mr-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
+            />
+          </svg>
+          {Math.abs(value).toFixed(1)}%
+        </span>
+      );
+    } else {
+      return (
+        <span className="flex items-center text-gray-600">
+          <svg
+            className="w-4 h-4 mr-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 12h14"
+            />
+          </svg>
+          0%
+        </span>
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -377,7 +478,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center">
@@ -409,7 +510,7 @@ export default function DashboardPage() {
                   {stats.products.active} active
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {stats.products.inactive} in_active
+                  {stats.products.inactive} inactive
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {stats.products.discontinued} discontinued
@@ -442,9 +543,12 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-gray-900">
                 {stats.orders.total}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {stats.orders.thisMonth} this month
-              </p>
+              <div className="flex items-center mt-1">
+                <p className="text-xs text-gray-500">
+                  {stats.orders.thisMonth} this month
+                </p>
+                {getGrowthIndicator(stats.orders.monthlyGrowth)}
+              </div>
             </div>
           </div>
         </div>
@@ -514,6 +618,106 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Financial Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-sm p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm font-medium">Total Revenue</p>
+              <p className="text-3xl font-bold mt-2">
+                {formatCurrency(stats.revenue.total)}
+              </p>
+              <div className="mt-2 flex items-center">
+                <span className="text-blue-100 text-sm">
+                  Average Order:{" "}
+                  {formatCurrency(stats.revenue.averageOrderValue)}
+                </span>
+              </div>
+            </div>
+            <div className="bg-white/20 rounded-lg p-3">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-sm p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-green-100 text-sm font-medium">
+                Inventory Value
+              </p>
+              <p className="text-3xl font-bold mt-2">
+                {formatCurrency(stats.products.totalInventoryValue)}
+              </p>
+              <div className="mt-2 flex items-center">
+                <span className="text-green-100 text-sm">
+                  Cost: {formatCurrency(stats.products.totalCostValue)}
+                </span>
+              </div>
+            </div>
+            <div className="bg-white/20 rounded-lg p-3">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-sm p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-purple-100 text-sm font-medium">
+                Total Customers
+              </p>
+              <p className="text-3xl font-bold mt-2">{stats.customers.total}</p>
+              <div className="mt-2 flex items-center">
+                <span className="text-purple-100 text-sm">Active buyers</span>
+              </div>
+            </div>
+            <div className="bg-white/20 rounded-lg p-3">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Inventory Alerts */}
       {(inventoryAlerts.lowStock.count > 0 ||
         inventoryAlerts.outOfStock.count > 0) && (
@@ -526,7 +730,7 @@ export default function DashboardPage() {
             {inventoryAlerts.lowStock.products.map(alert => (
               <div
                 key={alert.code}
-                className="border rounded-lg p-4 bg-yellow-100 border-yellow-200 text-yellow-800"
+                className="border rounded-lg p-4 bg-yellow-50 border-yellow-200 text-yellow-800"
               >
                 <div className="flex items-start">
                   <div className="shrink-0">
@@ -560,7 +764,7 @@ export default function DashboardPage() {
             {inventoryAlerts.outOfStock.products.map(alert => (
               <div
                 key={alert.code}
-                className="border rounded-lg p-4 bg-red-100 border-red-200 text-red-800"
+                className="border rounded-lg p-4 bg-red-50 border-red-200 text-red-800"
               >
                 <div className="flex items-start">
                   <div className="shrink-0">
@@ -593,6 +797,245 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Revenue Analytics */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Revenue Analytics
+            </h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Current Month</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(stats.revenue.currentMonth.revenue)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {stats.revenue.currentMonth.orderCount} orders
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Last Month</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(stats.revenue.lastMonth.revenue)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {stats.revenue.lastMonth.orderCount} orders
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Year to Date</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(stats.revenue.yearToDate.revenue)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {stats.revenue.yearToDate.orderCount} orders
+                </p>
+              </div>
+            </div>
+
+            {stats.revenue.revenueByMonth.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Monthly Revenue Trend
+                </h3>
+                <div className="space-y-2">
+                  {stats.revenue.revenueByMonth.map(month => (
+                    <div key={month._id} className="flex items-center">
+                      <div className="w-16 text-sm text-gray-600">
+                        {getMonthName(month._id)}
+                      </div>
+                      <div className="flex-1 mx-4">
+                        <div className="bg-gray-200 rounded-full h-6 relative">
+                          <div
+                            className="bg-blue-500 h-6 rounded-full flex items-center justify-end pr-2"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                (month.revenue /
+                                  Math.max(
+                                    ...stats.revenue.revenueByMonth.map(
+                                      m => m.revenue
+                                    )
+                                  )) *
+                                  100
+                              )}%`,
+                            }}
+                          >
+                            <span className="text-xs text-white font-medium">
+                              {formatCurrency(month.revenue)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600 w-16 text-right">
+                        {month.orderCount} orders
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Order Status Breakdown */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Order Status
+            </h2>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {Object.entries(stats.orders.byStatus).map(([status, count]) => (
+                <div key={status} className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span
+                      className={`inline-flex w-3 h-3 rounded-full mr-3 ${
+                        status === "pending"
+                          ? "bg-yellow-500"
+                          : status === "confirmed"
+                          ? "bg-blue-500"
+                          : status === "shipped"
+                          ? "bg-purple-500"
+                          : status === "delivered"
+                          ? "bg-green-500"
+                          : "bg-red-500"
+                      }`}
+                    ></span>
+                    <span className="text-sm font-medium text-gray-700 capitalize">
+                      {status}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">
+                    {count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Top Selling Products */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Top Selling Products
+              </h2>
+              <Link
+                href="/dashboard/products"
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                View all
+              </Link>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-4">
+              {stats.topSellingProducts.length > 0 ? (
+                stats.topSellingProducts.map((product, index) => (
+                  <div
+                    key={product._id}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-sm font-bold text-blue-600">
+                          {index + 1}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {product.productDetails.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {product.productDetails.category} • {product._id}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">
+                        {formatCurrency(product.totalRevenue)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {product.totalQuantity} sold • {product.orderCount}{" "}
+                        orders
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">
+                  No sales data available
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Top Customers */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Top Customers
+              </h2>
+              <Link
+                href="/dashboard/orders"
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                View all
+              </Link>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-4">
+              {stats.customers.topCustomers.length > 0 ? (
+                stats.customers.topCustomers.map((customer, index) => (
+                  <div
+                    key={customer._id}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-sm font-bold text-green-600">
+                          {index + 1}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {customer.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{customer._id}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">
+                        {formatCurrency(customer.totalSpent)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {customer.orderCount} orders • Avg:{" "}
+                        {formatCurrency(customer.averageOrderValue)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">
+                  No customer data available
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
@@ -648,95 +1091,42 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Product Categories */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Quick Actions
+              Product Categories
             </h2>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-2 gap-4">
-              <Link
-                href="/dashboard/products/new"
-                className="flex items-center justify-center px-4 py-3 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all hover:shadow-md"
-              >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-                Add Product
-              </Link>
-              <Link
-                href="/dashboard/orders/new"
-                className="flex items-center justify-center px-4 py-3 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-all hover:shadow-md"
-              >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                  />
-                </svg>
-                New Order
-              </Link>
-              <a
-                href="/dashboard/inventory"
-                className="flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all hover:shadow-md"
-              >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 012 2h2A2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                  />
-                </svg>
-                Inventory
-              </a>
-              <button
-                onClick={logout}
-                className="flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all hover:shadow-md"
-              >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 00-2-2V7a2 2 0 012 2h2A2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                  />
-                </svg>
-                Logout
-              </button>
+            <div className="space-y-3">
+              {stats.products.byCategory.length > 0 ? (
+                stats.products.byCategory.map(category => (
+                  <div
+                    key={category._id}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {category._id}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {category.count} products • {category.totalQuantity}{" "}
+                        items
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">
+                        {formatCurrency(category.totalValue)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4">
+                  No category data available
+                </p>
+              )}
             </div>
           </div>
         </div>
