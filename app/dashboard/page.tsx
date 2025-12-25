@@ -507,6 +507,9 @@ export default function DashboardPage() {
               </p>
               <div className="flex gap-5 items-center">
                 <p className="text-xs text-gray-500 mt-1">
+                  {stats.products.totalProductQuantity} total items
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
                   {stats.products.active} active
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
